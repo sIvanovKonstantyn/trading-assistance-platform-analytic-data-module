@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import WebSocket from 'ws';
 import { Candle } from '../models/Candle';
 import { DepthSnapshot } from '../models/DepthSnapshot';
@@ -30,8 +29,7 @@ export class BinanceCollector {
     let start = from;
     const result: Candle[] = [];
     while (start < to) {
-      const end = Math.min(start + limit * this.intervalToMs(interval), to);
-      const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&startTime=${start}&endTime=${end}&limit=${limit}`;
+      const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&startTime=${start}&endTime=${to}&limit=${limit}`;
       const resp = await fetch(url);
       const data = await resp.json();
       if (!Array.isArray(data) || data.length === 0) break;
@@ -41,8 +39,12 @@ export class BinanceCollector {
           quoteAssetVolume: +d[7], numberOfTrades: d[8], takerBuyBaseAssetVolume: +d[9], takerBuyQuoteAssetVolume: +d[10],
         });
       }
-      start = data[data.length - 1][0] + this.intervalToMs(interval);
       if (data.length < limit) break;
+      // Advance start to the closeTime + 1 ms of the last candle to avoid overlap
+      const lastCandle = data[data.length - 1];
+      start = lastCandle[6] + 1;
+      // If the last candle's openTime or closeTime is >= to, stop
+      if (lastCandle[0] >= to || lastCandle[6] >= to) break;
     }
     return result;
   }

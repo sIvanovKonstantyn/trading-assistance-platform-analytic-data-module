@@ -56,12 +56,40 @@ export class IndicatorCalculator {
   }
 
   calculateMACD(data: number[], fastPeriod: number, slowPeriod: number, signalPeriod: number): MACDResult {
-    const fastEMA = this.calculateEMA(data, fastPeriod);
-    const slowEMA = this.calculateEMA(data, slowPeriod);
-    const macd = fastEMA.slice(slowEMA.length - fastEMA.length).map((v, i) => v - slowEMA[i]);
+    // Calculate EMAs
+    const fastEMA = this.calculateEMA(data, fastPeriod); // length: data.length - fastPeriod + 1
+    const slowEMA = this.calculateEMA(data, slowPeriod); // length: data.length - slowPeriod + 1
+    // Align EMAs: MACD can only be calculated where both EMAs are defined
+    const start = slowPeriod - fastPeriod;
+    const macd = [];
+    for (let i = 0; i < slowEMA.length; i++) {
+      macd.push(fastEMA[i + start] - slowEMA[i]);
+    }
+    // Signal line
     const signal = this.calculateEMA(macd, signalPeriod);
-    const histogram = macd.slice(signal.length - macd.length).map((v, i) => v - signal[i]);
+    // Histogram
+    const histogram = [];
+    for (let i = 0; i < signal.length; i++) {
+      histogram.push(macd[i + (signalPeriod - 1)] - signal[i]);
+    }
     return { macd, signal, histogram };
+  }
+
+  calculateBollingerBands(data: number[], period: number, stdDev: number = 2): { middle: number, upper: number, lower: number }[] {
+    const sma = this.calculateSMA(data, period);
+    const bands = [];
+    for (let i = 0; i < sma.length; i++) {
+      const window = data.slice(i, i + period);
+      const mean = sma[i];
+      const variance = window.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / period;
+      const std = Math.sqrt(variance);
+      bands.push({
+        middle: mean,
+        upper: mean + stdDev * std,
+        lower: mean - stdDev * std,
+      });
+    }
+    return bands;
   }
 
   registerCustomIndicator(indicator: ICustomIndicator) {

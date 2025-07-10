@@ -14,7 +14,7 @@ npm run build
 
 Then import and use in your TypeScript/JavaScript project:
 ```ts
-import { DataCollector, IndicatorCalculator, SQLiteAdapter, CronScheduler } from 'analytic-data-module';
+import { BinanceCollector, IndicatorCalculator, SQLiteAdapter, CronScheduler } from 'analytic-data-module';
 ```
 
 ## Features
@@ -25,35 +25,77 @@ import { DataCollector, IndicatorCalculator, SQLiteAdapter, CronScheduler } from
 - Task scheduler with cron/interval support
 - Modular, type-safe, and testable
 
-## Example Usage
+## Usage Examples
+
+### 1. Using Storage
 ```ts
-import { DataCollector, IndicatorCalculator, SQLiteAdapter, CronScheduler } from 'crypto-data-lib';
+import { SQLiteAdapter } from 'analytic-data-module';
 
 const storage = new SQLiteAdapter({ path: './data.db' });
+
+// Save candles
+await storage.saveCandles('BTCUSDT', '1m', [/* array of Candle objects */]);
+
+// Load candles
+const candles = await storage.loadCandles('BTCUSDT', '1m', fromTimestamp, toTimestamp);
+
+// Save indicator results
+await storage.saveIndicatorResults('BTCUSDT', 'RSI', 14, [
+  { timestamp: 1234567890, value: 55.2 },
+]);
+
+// Query indicator results
+const rsi = await storage.queryIndicator('BTCUSDT', 'RSI', 14, fromTimestamp, toTimestamp);
+```
+
+### 2. Fetching and Storing Data with Scheduler
+```ts
+import { BinanceCollector, SQLiteAdapter, CronScheduler } from 'analytic-data-module';
+
+const storage = new SQLiteAdapter({ path: './data.db' });
+const collector = new BinanceCollector({ storage });
 const scheduler = new CronScheduler();
-const collector = new DataCollector({ apiKey, secretKey, storage });
+
+// Schedule a daily fetch and store for BTCUSDT 1m candles
+type FetchAndStoreJob = () => Promise<void>;
+const fetchAndStore: FetchAndStoreJob = async () => {
+  const now = Date.now();
+  const from = now - 24 * 60 * 60 * 1000; // last 24h
+  const candles = await collector.getHistoricalKlines('BTCUSDT', '1m', from, now);
+  await storage.saveCandles('BTCUSDT', '1m', candles);
+};
+
+scheduler.scheduleTask('daily-btc-fetch', '0 0 * * *', fetchAndStore); // every day at midnight
+```
+
+### 3. Calculating and Storing Indicators with Price Data
+```ts
+import { IndicatorCalculator, SQLiteAdapter } from 'analytic-data-module';
+
+const storage = new SQLiteAdapter({ path: './data.db' });
 const calculator = new IndicatorCalculator();
 
-scheduler.scheduleRangeTask(
-  'daily-btc-history',
-  '0 0 * * *',
-  ['BTCUSDT'],
-  Date.now() - 86400000,
-  Date.now(),
-  '1m'
-);
+// Load candles and calculate RSI, then store results
+const candles = await storage.loadCandles('BTCUSDT', '1m', fromTimestamp, toTimestamp);
+const closes = candles.map(c => c.close);
+const rsiValues = calculator.calculateRSI(closes, 14);
+
+await storage.saveIndicatorResults('BTCUSDT', 'RSI', 14, rsiValues.map((v, idx) => ({
+  timestamp: candles[idx + (candles.length - rsiValues.length)].openTime,
+  value: v,
+})));
+```
+
+### 4. Real-Time Data Subscription
+```ts
+import { BinanceCollector } from 'analytic-data-module';
+
+const collector = new BinanceCollector({});
 
 collector.onKline((symbol, interval, kline) => {
-  console.log(`New close price: ${kline.close}`);
+  console.log(`New kline for ${symbol} [${interval}]:`, kline);
 });
 collector.subscribeKlines('BTCUSDT', '1m');
-
-(async () => {
-  const candles = await storage.loadCandles('BTCUSDT', '1m', fromTs, toTs);
-  const closes = candles.map(c => c.close);
-  const rsiValues = calculator.calculateRSI(closes, 14);
-  await storage.saveIndicatorResults('BTCUSDT', 'RSI', 14, rsiValues.map((v, idx) => ({ timestamp: candles[idx].openTime, value: v })));
-})();
 ```
 
 ## Development

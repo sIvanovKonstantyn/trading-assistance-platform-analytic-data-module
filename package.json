@@ -1,0 +1,33 @@
+{
+  "name": "analitic-data-module",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "docs": "typedoc src/index.ts --out docs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@types/jest": "^30.0.0",
+    "cron": "^4.3.1",
+    "jest": "^30.0.4",
+    "node-fetch": "^3.3.2",
+    "sqlite3": "^5.1.7",
+    "ts-jest": "^29.4.0",
+    "typedoc": "^0.28.7",
+    "typescript": "^5.8.3",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}
